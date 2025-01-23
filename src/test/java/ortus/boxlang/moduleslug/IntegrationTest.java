@@ -27,37 +27,29 @@ public class IntegrationTest extends BaseIntegrationTest {
 	@DisplayName( "Test the module loads in BoxLang" )
 	@Test
 	public void testModuleLoads() {
-		// Given
-
 		// Then
 		assertThat( moduleService.getRegistry().containsKey( moduleName ) ).isTrue();
+	}
 
-		// Verify things got registered
-		// assertThat( datasourceService.hasDriver( Key.of( "derby" ) ) ).isTrue();
-
-		// Register a named datasource
-		// runtime.getConfiguration().runtime.datasources.put(
-		// Key.of( "derby" ),
-		// DatasourceConfig.fromStruct( Struct.of(
-		// "name", "derby",
-		// "driver", "derby",
-		// "properties", Struct.of(
-		// "database", "testDB",
-		// "protocol", "memory"
-		// )
-		// ) )
-		// );
-
-		// @formatter:off
+	@DisplayName( "Test that you can call yamlSerialize" )
+	@Test
+	public void testYamlSerialize() {
 		runtime.executeSource(
 		    """
-			// Testing code here
-			""",
-		    context
-		);
-		// @formatter:on
+		    	result = yamlSerialize( null )
+		    """,
+		    context );
+		assertThat( variables.getAsString( result ) ).contains( "null" );
+	}
 
-		// Asserts here
-
+	@DisplayName( "It can serialize a string" )
+	@Test
+	public void testCanSerializeString() {
+		runtime.executeSource(
+		    """
+		    	result = yamlSerialize( "Hello World" )
+		    """,
+		    context );
+		assertThat( variables.get( result ) ).isEqualTo( "Hello World\n" );
 	}
 }
