@@ -54,7 +54,7 @@ public class YamlParser {
 		options.setDefaultFlowStyle( DumperOptions.FlowStyle.BLOCK );
 		options.setPrettyFlow( true );
 
-		Representer representer = new Representer( options );
+		Representer representer = new BoxLangRepresenter( options );
 		representer.getPropertyUtils().setSkipMissingProperties( true );
 
 		LoaderOptions loaderOptions = new LoaderOptions();

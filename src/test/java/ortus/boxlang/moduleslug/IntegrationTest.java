@@ -52,4 +52,46 @@ public class IntegrationTest extends BaseIntegrationTest {
 		    context );
 		assertThat( variables.get( result ) ).isEqualTo( "Hello World\n" );
 	}
+
+	@DisplayName( "It can serialize a number" )
+	@Test
+	public void testCanSerializeNumber() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		        result = yamlSerialize( 42 )
+		    	println( result )
+		    """,
+		    context );
+		// @formatter:on
+		assertThat( variables.get( result ) ).isEqualTo( "42\n" );
+	}
+
+	@DisplayName( "It can serialize an array" )
+	@Test
+	public void testCanSerializeArray() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		        result = yamlSerialize( [ 1, 2, 3 ] )
+		    	println( result )
+		    """,
+		    context );
+		// @formatter:on
+		assertThat( variables.get( result ) ).isEqualTo( "- 1\n- 2\n- 3\n" );
+	}
+
+	@DisplayName( "It can serialize a struct" )
+	@Test
+	public void testCanSerializeStruct() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		        result = yamlSerialize( { name = "Luis", age = 42 } )
+		    	println( result )
+		    """,
+		    context );
+		// @formatter:on
+		assertThat( variables.get( result ) ).isEqualTo( "age: 42\nname: Luis\n" );
+	}
 }
