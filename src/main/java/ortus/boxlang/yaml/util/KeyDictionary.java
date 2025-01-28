@@ -21,6 +21,8 @@ import ortus.boxlang.runtime.scopes.Key;
  */
 public class KeyDictionary {
 
-	public static final Key moduleName = new Key( "yaml" );
+	public static final Key	moduleName	= new Key( "yaml" );
+	public static final Key	yamlExclude	= new Key( "yamlExclude" );
+	public static final Key	toYaml		= new Key( "toYaml" );
 
 }

@@ -43,7 +43,7 @@ public class BoxLangConstructor extends Constructor {
 		if ( node.getTag().equals( Tag.MAP ) ) {
 			// Use the custom Struct class
 			Map<Object, Object> map = ( Map<Object, Object> ) super.constructObject( node );
-			return Struct.of( map );
+			return Struct.fromMap( map );
 		}
 		// Is this a sequence? Map to an Array
 		else if ( node.getTag().equals( Tag.SEQ ) ) {
