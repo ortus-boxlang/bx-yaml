@@ -27,36 +27,36 @@ import ortus.boxlang.runtime.types.IStruct;
  */
 public class IntegrationTest extends BaseIntegrationTest {
 
-	@DisplayName("Test the module loads in BoxLang")
+	@DisplayName( "Test the module loads in BoxLang" )
 	@Test
 	public void testModuleLoads() {
 		// Then
-		assertThat(moduleService.getRegistry().containsKey(moduleName)).isTrue();
+		assertThat( moduleService.getRegistry().containsKey( moduleName ) ).isTrue();
 	}
 
-	@DisplayName("Test that you can call yamlSerialize")
+	@DisplayName( "Test that you can call yamlSerialize" )
 	@Test
 	public void testYamlSerialize() {
 		runtime.executeSource(
-				"""
-							result = yamlSerialize( null )
-						""",
-				context);
-		assertThat(variables.getAsString(result)).contains("null");
+		    """
+		    	result = yamlSerialize( null )
+		    """,
+		    context );
+		assertThat( variables.getAsString( result ) ).contains( "null" );
 	}
 
-	@DisplayName("It can serialize a string")
+	@DisplayName( "It can serialize a string" )
 	@Test
 	public void testCanSerializeString() {
 		runtime.executeSource(
-				"""
-							result = yamlSerialize( "Hello World" )
-						""",
-				context);
-		assertThat(variables.get(result)).isEqualTo("Hello World\n");
+		    """
+		    	result = yamlSerialize( "Hello World" )
+		    """,
+		    context );
+		assertThat( variables.get( result ) ).isEqualTo( "Hello World\n" );
 	}
 
-	@DisplayName("It can serialize a number")
+	@DisplayName( "It can serialize a number" )
 	@Test
 	public void testCanSerializeNumber() {
 		// @formatter:off
@@ -67,10 +67,10 @@ public class IntegrationTest extends BaseIntegrationTest {
 		    """,
 		    context );
 		// @formatter:on
-		assertThat(variables.get(result)).isEqualTo("42\n");
+		assertThat( variables.get( result ) ).isEqualTo( "42\n" );
 	}
 
-	@DisplayName("It can serialize an array")
+	@DisplayName( "It can serialize an array" )
 	@Test
 	public void testCanSerializeArray() {
 		// @formatter:off
@@ -81,10 +81,10 @@ public class IntegrationTest extends BaseIntegrationTest {
 		    """,
 		    context );
 		// @formatter:on
-		assertThat(variables.get(result)).isEqualTo("- 1\n- 2\n- 3\n");
+		assertThat( variables.get( result ) ).isEqualTo( "- 1\n- 2\n- 3\n" );
 	}
 
-	@DisplayName("It can serialize a struct")
+	@DisplayName( "It can serialize a struct" )
 	@Test
 	public void testCanSerializeStruct() {
 		// @formatter:off
@@ -95,10 +95,10 @@ public class IntegrationTest extends BaseIntegrationTest {
 		    """,
 		    context );
 		// @formatter:on
-		assertThat(variables.get(result)).isEqualTo("age: 42\nname: Luis\n");
+		assertThat( variables.get( result ) ).isEqualTo( "age: 42\nname: Luis\n" );
 	}
 
-	@DisplayName("It can serialize dates")
+	@DisplayName( "It can serialize dates" )
 	@Test
 	public void testCanSerializeDates() {
 		// @formatter:off
@@ -110,10 +110,10 @@ public class IntegrationTest extends BaseIntegrationTest {
 		    """,
 		    context );
 		// @formatter:on
-		assertThat(variables.getAsString(result)).contains("'2024-01-01T00:00:00Z'");
+		assertThat( variables.getAsString( result ) ).contains( "'2024-01-01T00:00:00Z'" );
 	}
 
-	@DisplayName("It can serialize a struct with data types")
+	@DisplayName( "It can serialize a struct with data types" )
 	@Test
 	public void testCanSerializeStructWithTypes() {
 		// @formatter:off
@@ -137,16 +137,16 @@ public class IntegrationTest extends BaseIntegrationTest {
 		    """,
 		    context );
 		// @formatter:on
-		IStruct bxResult = (IStruct) variables.get(bx);
-		assertThat(bxResult.get(new Key("name"))).isEqualTo("Luis");
-		assertThat(bxResult.get(new Key("numbers")).toString()).isEqualTo("[[1, 2, 3]]");
-		assertThat(bxResult.get(new Key("age"))).isEqualTo(42);
-		assertThat(bxResult.get(new Key("isOpen"))).isEqualTo(true);
-		assertThat(bxResult.get(new Key("nested")).toString().replaceAll("\\s", "")).isEqualTo("{foo:\"bar\"}");
-		assertThat(bxResult.get(new Key("dob"))).isEqualTo("2024-01-01T00:00:00Z");
+		IStruct bxResult = ( IStruct ) variables.get( bx );
+		assertThat( bxResult.get( new Key( "name" ) ) ).isEqualTo( "Luis" );
+		assertThat( bxResult.get( new Key( "numbers" ) ).toString() ).isEqualTo( "[[1, 2, 3]]" );
+		assertThat( bxResult.get( new Key( "age" ) ) ).isEqualTo( 42 );
+		assertThat( bxResult.get( new Key( "isOpen" ) ) ).isEqualTo( true );
+		assertThat( bxResult.get( new Key( "nested" ) ).toString().replaceAll( "\\s", "" ) ).isEqualTo( "{foo:\"bar\"}" );
+		assertThat( bxResult.get( new Key( "dob" ) ) ).isEqualTo( "2024-01-01T00:00:00Z" );
 	}
 
-	@DisplayName("It can serialize a query as array of structs")
+	@DisplayName( "It can serialize a query as array of structs" )
 	@Test
 	public void testCanSerializeQuery() {
 		// @formatter:off
@@ -170,7 +170,7 @@ public class IntegrationTest extends BaseIntegrationTest {
 		// @formatter:on
 	}
 
-	@DisplayName("Deserialize a test file")
+	@DisplayName( "Deserialize a test file" )
 	@Test
 	public void testDeserializeFile() {
 		// @formatter:off
