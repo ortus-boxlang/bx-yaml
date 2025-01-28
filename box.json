@@ -43,7 +43,5 @@
 		"/src/**",
 		"gradle/**"
 	],
-	"scripts": {
-		"onRelease": "publish"
-	}
+	"scripts": {}
 }
