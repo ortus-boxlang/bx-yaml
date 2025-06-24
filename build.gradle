@@ -43,7 +43,7 @@ dependencies {
 
 	// Implementation Dependencies
 	// https://central.sonatype.com/artifact/org.yaml/snakeyaml/overview
-	implementation 'org.yaml:snakeyaml:2.3'
+	implementation 'org.yaml:snakeyaml:2.4'
 
     // Testing Dependencies
 	testImplementation files( '../../boxlang/build/distributions/boxlang-' + boxlangVersion + '-all.jar' )
