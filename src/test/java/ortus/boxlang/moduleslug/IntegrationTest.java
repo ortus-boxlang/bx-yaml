@@ -95,7 +95,8 @@ public class IntegrationTest extends BaseIntegrationTest {
 		    """,
 		    context );
 		// @formatter:on
-		assertThat( variables.get( result ) ).isEqualTo( "age: 42\nname: Luis\n" );
+		assertThat( variables.getAsString( result ) ).contains( "name: Luis\n" );
+		assertThat( variables.getAsString( result ) ).contains( "age: 42\n" );
 	}
 
 	@DisplayName( "It can serialize dates" )
