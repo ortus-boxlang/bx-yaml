@@ -49,7 +49,8 @@ public class BoxLangConstructor extends Constructor {
 		else if ( node.getTag().equals( Tag.SEQ ) ) {
 			// Use the custom Array class
 			List<Object> list = ( List<Object> ) super.constructObject( node );
-			return Array.of( list );
+			// fromList(), not of(): of() takes varargs, so the whole List would become the one and only element
+			return Array.fromList( list );
 		}
 		// If this is a date/time use a BoxLang date/time object
 		else if ( node.getTag().equals( Tag.TIMESTAMP ) ) {

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Every YAML sequence deserialized with one extra, spurious array layer (`[ a, b ]` came back as `[ [ a, b ] ]`), because the whole list was passed to the varargs `Array.of()` as a single item. Sequences are now built with `Array.fromList()`. Code that unwrapped the extra layer as a workaround must stop doing so.
+
 ## [1.0.0] - 2025-01-28
 
 - First iteration of this module
