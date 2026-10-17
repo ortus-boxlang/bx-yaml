@@ -184,4 +184,116 @@ public class IntegrationTest extends BaseIntegrationTest {
 		// @formatter:on
 	}
 
+	@DisplayName( "A flow sequence deserializes to a flat array" )
+	@Test
+	public void testDeserializeFlowSequence() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		        data   = yamlDeserialize( "names: [ a, b, c ]" )
+		        result = data.names.len() & "|" & data.names[ 1 ] & "|" & data.names[ 3 ]
+		    """,
+		    context );
+		// @formatter:on
+		assertThat( variables.get( result ) ).isEqualTo( "3|a|c" );
+	}
+
+	@DisplayName( "A block sequence deserializes to a flat array" )
+	@Test
+	public void testDeserializeBlockSequence() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		        data   = yamlDeserialize( "names:" & char( 10 ) & "  - a" & char( 10 ) & "  - b" )
+		        result = data.names.len() & "|" & data.names[ 2 ]
+		    """,
+		    context );
+		// @formatter:on
+		assertThat( variables.get( result ) ).isEqualTo( "2|b" );
+	}
+
+	@DisplayName( "A top level sequence deserializes to a flat array" )
+	@Test
+	public void testDeserializeTopLevelSequence() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		        data   = yamlDeserialize( "[ 1, 2, 3 ]" )
+		        result = data.len() & "|" & isArray( data[ 1 ] )
+		    """,
+		    context );
+		// @formatter:on
+		assertThat( variables.get( result ) ).isEqualTo( "3|false" );
+	}
+
+	@DisplayName( "A sequence with one item stays a one item array" )
+	@Test
+	public void testDeserializeSingleItemSequence() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		        data   = yamlDeserialize( "names: [ only ]" )
+		        result = data.names.len() & "|" & isArray( data.names[ 1 ] ) & "|" & data.names[ 1 ]
+		    """,
+		    context );
+		// @formatter:on
+		assertThat( variables.get( result ) ).isEqualTo( "1|false|only" );
+	}
+
+	@DisplayName( "An empty sequence deserializes to an empty array" )
+	@Test
+	public void testDeserializeEmptySequence() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		        data   = yamlDeserialize( "names: []" )
+		        result = data.names.len()
+		    """,
+		    context );
+		// @formatter:on
+		assertThat( variables.get( result ) ).isEqualTo( 0 );
+	}
+
+	@DisplayName( "Nested sequences keep exactly their own depth" )
+	@Test
+	public void testDeserializeNestedSequences() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		        data   = yamlDeserialize( "grid: [ [ 1, 2 ], [ 3, 4 ] ]" )
+		        result = data.grid.len() & "|" & data.grid[ 1 ].len() & "|" & data.grid[ 2 ][ 1 ]
+		    """,
+		    context );
+		// @formatter:on
+		assertThat( variables.get( result ) ).isEqualTo( "2|2|3" );
+	}
+
+	@DisplayName( "A sequence of mappings deserializes to an array of structs" )
+	@Test
+	public void testDeserializeSequenceOfMappings() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		        data   = yamlDeserialize( "people:" & char( 10 ) & "  - name: Luis" & char( 10 ) & "  - name: Brad" )
+		        result = data.people.len() & "|" & data.people[ 2 ].name
+		    """,
+		    context );
+		// @formatter:on
+		assertThat( variables.get( result ) ).isEqualTo( "2|Brad" );
+	}
+
+	@DisplayName( "Serializing then deserializing an array gives the same array back" )
+	@Test
+	public void testArrayRoundTrip() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		        data   = yamlDeserialize( yamlSerialize( [ 1, 2, 3 ] ) )
+		        result = data.len() & "|" & data[ 3 ]
+		    """,
+		    context );
+		// @formatter:on
+		assertThat( variables.get( result ) ).isEqualTo( "3|3" );
+	}
+
 }
