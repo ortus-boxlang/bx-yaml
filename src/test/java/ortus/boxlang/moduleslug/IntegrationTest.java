@@ -140,7 +140,7 @@ public class IntegrationTest extends BaseIntegrationTest {
 		// @formatter:on
 		IStruct bxResult = ( IStruct ) variables.get( bx );
 		assertThat( bxResult.get( new Key( "name" ) ) ).isEqualTo( "Luis" );
-		assertThat( bxResult.get( new Key( "numbers" ) ).toString() ).isEqualTo( "[[1, 2, 3]]" );
+		assertThat( bxResult.get( new Key( "numbers" ) ).toString() ).isEqualTo( "[1, 2, 3]" );
 		assertThat( bxResult.get( new Key( "age" ) ) ).isEqualTo( 42 );
 		assertThat( bxResult.get( new Key( "isOpen" ) ) ).isEqualTo( true );
 		assertThat( bxResult.get( new Key( "nested" ) ).toString().replaceAll( "\\s", "" ) ).isEqualTo( "{foo:\"bar\"}" );
