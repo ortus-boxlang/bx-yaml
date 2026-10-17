@@ -224,7 +224,7 @@ public class BoxLangRepresenter extends Representer {
 		@Override
 		public Node representData( Object data ) {
 			if ( data instanceof Query castedQuery ) {
-				return super.representData( castedQuery.asArrayOfStructs() );
+				return super.representData( castedQuery.toArrayOfStructs() );
 			}
 			return super.representData( data );
 		}
