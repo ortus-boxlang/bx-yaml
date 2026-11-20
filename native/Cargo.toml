@@ -9,7 +9,7 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-matchbox-plugin-sdk = { git = "https://github.com/ortus-boxlang/matchbox", rev = "8b6e1ba1605d18ba3e674f90c21bf12990571675" }
+matchbox-plugin-sdk = { git = "https://github.com/ortus-boxlang/matchbox", rev = "bfbfdf2a5aeda5b22cf9281a82e0a9c02534175a" }
 saphyr-parser = "0.0"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 chrono-tz = "0.10"
