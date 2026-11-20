@@ -12,23 +12,34 @@ use std::{ffi::c_void, sync::OnceLock};
 
 /// The capabilities the host granted at initialization.
 struct Apis {
+    /// Type checks and conversions of values.
     types: &'static TypesV1,
+    /// Reading and building arrays.
     collections: &'static CollectionsV1,
+    /// Reading and creating whole numbers.
     integers: &'static IntegersV1,
+    /// Reading and building structs.
     structs: &'static StructsV1,
+    /// Reading and creating date-times.
     datetime: &'static DatetimeV1,
+    /// `expandPath` resolution.
     paths: &'static PathsV1,
+    /// Typed exceptions.
     errors: &'static ErrorsV1,
 }
 
+/// The capabilities, set once when the host initializes the plugin.
 static APIS: OnceLock<Apis> = OnceLock::new();
 
+/// The granted capabilities, or an error when the plugin was not initialized.
 fn apis() -> Result<&'static Apis, String> {
     APIS.get().ok_or_else(|| "The YAML plugin was not initialized".to_string())
 }
 
+/// The result of a step that can fail with a typed failure.
 type Outcome<T> = std::result::Result<T, Failure>;
 
+/// A failure that is not tied to a file or a document, raised as a serialization error.
 fn plain(error: String) -> Failure {
     Failure::new(Kind::Serialization, error)
 }
@@ -122,6 +133,7 @@ fn check_charset(call: &Call<'_>, a: &Apis, index: usize) -> Outcome<()> {
     }
 }
 
+/// The text of argument `index`, or `None` when it is missing or null.
 fn text_argument(call: &Call<'_>, a: &Apis, index: usize) -> Outcome<Option<String>> {
     let value = call.argument(index).map_err(plain)?;
     if call.kind(a.types, value).map_err(plain)? == VmKind::Null {
@@ -130,17 +142,20 @@ fn text_argument(call: &Call<'_>, a: &Apis, index: usize) -> Outcome<Option<Stri
     Ok(Some(call.string(value).map_err(plain)?))
 }
 
+/// Resolves `path` the way `expandPath` does.
 fn resolve_path(call: &Call<'_>, a: &Apis, path: &str) -> Outcome<String> {
     call.expand_path(a.paths, path).map_err(|e| Failure::new(Kind::Io, e))
 }
 
 // yamlDeserialize( content )
+/// `yamlDeserialize( text )`: parses YAML text.
 fn yaml_deserialize(call: &Call<'_>, a: &Apis) -> Outcome<Value> {
     let text = call.string(call.argument(0).map_err(plain)?).map_err(plain)?;
     to_vm(call, a, &read::read(&text)?)
 }
 
 // yamlDeserializeFile( filepath, charset )
+/// `yamlDeserializeFile( path )`: parses a YAML file.
 fn yaml_deserialize_file(call: &Call<'_>, a: &Apis) -> Outcome<Value> {
     let path = call.string(call.argument(0).map_err(plain)?).map_err(plain)?;
     check_charset(call, a, 1)?;
@@ -150,6 +165,7 @@ fn yaml_deserialize_file(call: &Call<'_>, a: &Apis) -> Outcome<Value> {
 }
 
 // yamlSerialize( content, filepath, charset ): the text, or null when it was written to filepath
+/// `yamlSerialize( content )`: writes a value as YAML text.
 fn yaml_serialize(call: &Call<'_>, a: &Apis) -> Outcome<Value> {
     let content = call.argument(0).map_err(plain)?;
     let file = text_argument(call, a, 1)?;
@@ -186,6 +202,7 @@ unsafe fn run(
     }
 }
 
+/// Defines the extern "C" entry point for a plugin function, running `$body` under `run`.
 macro_rules! entry {
     ($name:ident, $body:path) => {
         unsafe extern "C" fn $name(

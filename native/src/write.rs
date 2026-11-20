@@ -6,6 +6,7 @@ use crate::read;
 use crate::zone::offset_seconds;
 use chrono::{DateTime, Datelike, Timelike};
 
+/// A serialization failure with `message`.
 fn fail(message: impl Into<String>) -> Failure {
     Failure::new(Kind::Serialization, message)
 }
@@ -35,11 +36,18 @@ pub fn write(value: &Value) -> Result<String> {
 
 /// A scalar as it is written after `key:` or `- `.
 enum Scalar {
+    /// The text of a one-line scalar.
     Inline(String),
     /// A `|` literal block: the header (`|`, `|-` or `|+`) and its lines.
-    Block { header: String, lines: Vec<String> },
+    Block {
+        /// The block header: `|`, `|-` or `|+`.
+        header: String,
+        /// The lines of the block.
+        lines: Vec<String>,
+    },
 }
 
+/// A value as a scalar. Empty collections are written inline as `[]` and `{}`.
 fn scalar(value: &Value) -> Result<Scalar> {
     Ok(Scalar::Inline(match value {
         Value::Null => "null".into(),
@@ -53,10 +61,12 @@ fn scalar(value: &Value) -> Result<Scalar> {
     }))
 }
 
+/// `width` spaces.
 fn pad(width: usize) -> String {
     " ".repeat(width)
 }
 
+/// Appends one line of a block scalar at `indent`, leaving an empty line empty.
 fn block_line(line: &str, indent: usize, out: &mut String) {
     if !line.is_empty() {
         out.push_str(&pad(indent));
@@ -65,6 +75,7 @@ fn block_line(line: &str, indent: usize, out: &mut String) {
     out.push('\n');
 }
 
+/// A mapping key as text, quoting it when it could be misread.
 fn key(name: &str) -> String {
     match string(name) {
         Scalar::Inline(text) => text,
@@ -73,6 +84,7 @@ fn key(name: &str) -> String {
     }
 }
 
+/// Writes a mapping's entries at `indent`, nesting collections beneath their keys.
 fn map(entries: &[(String, Value)], indent: usize, out: &mut String) -> Result<()> {
     for (name, value) in entries {
         out.push_str(&pad(indent));
@@ -107,6 +119,7 @@ fn map(entries: &[(String, Value)], indent: usize, out: &mut String) -> Result<(
     Ok(())
 }
 
+/// Writes a sequence's items at `indent`, one `- ` entry each.
 fn sequence(items: &[Value], indent: usize, out: &mut String) -> Result<()> {
     for item in items {
         match item {
@@ -231,6 +244,7 @@ fn needs_escape(c: char) -> bool {
     (c as u32) < 0x20 && c != '\n' || matches!(c as u32, 0x7f..=0x9f | 0x2028 | 0x2029 | 0xfeff)
 }
 
+/// Text in double quotes, escaping quotes, backslashes and control characters.
 fn double_quoted(text: &str) -> String {
     let mut out = String::from("\"");
     for c in text.chars() {
@@ -302,13 +316,16 @@ fn looks_typed(text: &str) -> bool {
 mod tests {
     use super::*;
 
+    /// Test helper: a string value.
     fn s(text: &str) -> Value {
         Value::Str(text.into())
     }
+    /// Test helper: a table value from `(key, value)` pairs.
     fn table(entries: Vec<(&str, Value)>) -> Value {
         Value::Table(entries.into_iter().map(|(k, v)| (k.to_string(), v)).collect())
     }
 
+    /// The layout matches SnakeYAML's block style.
     #[test]
     fn layout_matches_snakeyaml_block_style() {
         let doc = table(vec![
@@ -327,6 +344,7 @@ mod tests {
         );
     }
 
+    /// The root can be a scalar, a sequence or a mapping.
     #[test]
     fn roots_may_be_any_value() {
         assert_eq!(write(&s("just text")).unwrap(), "just text\n");
@@ -337,6 +355,7 @@ mod tests {
         assert_eq!(write(&table(vec![])).unwrap(), "{}\n");
     }
 
+    /// Text that would read back as another type, or break the syntax, is quoted.
     #[test]
     fn strings_are_quoted_when_they_could_be_misread() {
         let doc = table(vec![
@@ -351,6 +370,7 @@ mod tests {
         );
     }
 
+    /// Multi-line text is written as a `|` literal block.
     #[test]
     fn multi_line_strings_are_literal_blocks() {
         let doc = table(vec![("a", s("line1\nline2")), ("b", s("a\n")), ("c", s("a\n\nb")), ("d", s("a\n\n")), ("e", s("\na")), ("f", s("x \ny"))]);
@@ -360,6 +380,7 @@ mod tests {
         );
     }
 
+    /// Numbers, dates and unusual keys are written as the JVM module writes them.
     #[test]
     fn numbers_dates_and_odd_keys() {
         let dt = Value::DateTime(DateTimeValue { seconds: 1_709_599_028, nanos: 500_000_000, zone: "+05:30".into() });
@@ -375,6 +396,7 @@ mod tests {
         );
     }
 
+    /// Written scalars read back as the same values.
     #[test]
     fn what_is_written_reads_back_the_same() {
         let strings = [
@@ -401,6 +423,7 @@ mod tests {
         }
     }
 
+    /// Nested structures read back as the same values.
     #[test]
     fn nested_structures_read_back_the_same() {
         let doc = table(vec![

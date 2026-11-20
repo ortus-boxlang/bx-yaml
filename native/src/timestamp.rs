@@ -66,6 +66,7 @@ pub fn parse(text: &str) -> Option<DateTimeValue> {
     Some(DateTimeValue { seconds: wall.and_utc().timestamp() - i64::from(total) * 60, nanos, zone: offset_name(total) })
 }
 
+/// A date-time on the wall clock in the system zone, with no zone of its own.
 fn local(wall: NaiveDateTime, nanos: u32) -> Option<DateTimeValue> {
     Some(DateTimeValue { seconds: local_to_instant(wall).ok()?, nanos, zone: String::new() })
 }
@@ -83,6 +84,7 @@ fn digits(text: &str, min: usize, max: usize) -> Option<(u32, &str)> {
 mod tests {
     use super::*;
 
+    /// `Z` and numeric offsets keep the instant and name the offset.
     #[test]
     fn offsets_and_zulu_keep_their_instant() {
         assert_eq!(parse("2024-03-05T06:07:08Z"), Some(DateTimeValue { seconds: 1_709_618_828, nanos: 0, zone: "UTC".into() }));
@@ -91,6 +93,7 @@ mod tests {
         assert_eq!(parse("2024-03-05t06:07:08z").is_none(), true);
     }
 
+    /// A date or a date-time without an offset reads in the system zone.
     #[test]
     fn dates_and_local_times_use_the_system_zone() {
         for text in ["2024-03-05", "2024-3-5", "2024-03-05T06:07:08", "2024-03-05 06:07:08.25"] {
@@ -98,6 +101,7 @@ mod tests {
         }
     }
 
+    /// Text that is not a timestamp gives `None`.
     #[test]
     fn other_text_is_not_a_timestamp() {
         for text in ["", "2024", "2024-03", "2024-13-05", "2024-03-05x", "2024-03-05T", "2024-03-05T25:00:00", "12345-01-01", "a2024-03-05"] {

@@ -9,8 +9,10 @@ use std::collections::HashMap;
 
 /// SnakeYAML's default: aliases to mappings or sequences beyond this many are refused, which stops "billion laughs" input.
 const MAX_COLLECTION_ALIASES: usize = 50;
+/// How deeply collections may nest before the document is refused.
 const MAX_DEPTH: usize = 200;
 
+/// A parse failure with `message`.
 fn fail(message: impl Into<String>) -> Failure {
     Failure::new(Kind::Parse, message)
 }
@@ -18,8 +20,18 @@ fn fail(message: impl Into<String>) -> Failure {
 /// A node as the parser saw it, before scalars are given a type.
 #[derive(Clone)]
 enum Node {
-    Scalar { text: String, style: ScalarStyle, tag: Option<String> },
+    /// A scalar with its text, how it was quoted and its explicit tag, if any.
+    Scalar {
+        /// The scalar's text after unquoting.
+        text: String,
+        /// How it was quoted, which decides whether it is typed.
+        style: ScalarStyle,
+        /// Its explicit tag, such as `!!str`.
+        tag: Option<String>,
+    },
+    /// A sequence of nodes.
     Sequence(Vec<Node>),
+    /// A mapping as its key and value nodes, in document order.
     Mapping(Vec<(Node, Node)>),
 }
 
@@ -34,24 +46,32 @@ pub fn read(text: &str) -> Result<Value> {
     builder.document()
 }
 
+/// Walks the parser's events and builds one document.
 struct Builder<'a> {
+    /// Every event of the stream, each with its line.
     events: Vec<(Event<'a>, usize)>,
+    /// The index of the next event to read.
     position: usize,
+    /// Nodes by anchor id, for aliases to point back to.
     anchors: HashMap<usize, Node>,
+    /// How many aliases to sequences or mappings were followed, against `MAX_COLLECTION_ALIASES`.
     collection_aliases: usize,
 }
 
 impl<'a> Builder<'a> {
+    /// The next event, or an error at the end of the stream.
     fn next(&mut self) -> Result<Event<'a>> {
         let event = self.events.get(self.position).map(|(event, _)| event.clone()).ok_or_else(|| fail("Unexpected end of YAML"))?;
         self.position += 1;
         Ok(event)
     }
 
+    /// Whether the next event is `end`, without consuming it.
     fn peek_is_end(&self, end: &Event<'_>) -> bool {
         self.events.get(self.position).is_some_and(|(event, _)| event == end)
     }
 
+    /// Reads the stream's documents: one gives its value, none gives null.
     fn document(&mut self) -> Result<Value> {
         let mut documents = Vec::new();
         loop {
@@ -75,6 +95,7 @@ impl<'a> Builder<'a> {
         }
     }
 
+    /// Reads one node and everything inside it, recording its anchor. `depth` is the nesting so far.
     fn node(&mut self, depth: usize) -> Result<Node> {
         if depth > MAX_DEPTH {
             return Err(fail("YAML is nested too deeply"));
@@ -131,6 +152,7 @@ impl<'a> Builder<'a> {
         }
     }
 
+    /// Records `node` under `anchor` so aliases can find it. An anchor of 0 means none.
     fn remember(&mut self, anchor: usize, node: &Node) {
         if anchor != 0 {
             self.anchors.insert(anchor, node.clone());
@@ -143,6 +165,7 @@ fn tag_name(handle: &str, suffix: &str) -> String {
     if handle == "tag:yaml.org,2002:" || handle == "!!" { format!("!!{suffix}") } else { format!("{handle}{suffix}") }
 }
 
+/// A node as a value, giving scalars their types. `depth` is the nesting so far.
 fn convert(node: &Node, depth: usize) -> Result<Value> {
     if depth > MAX_DEPTH {
         return Err(fail("YAML is nested too deeply"));
@@ -154,10 +177,12 @@ fn convert(node: &Node, depth: usize) -> Result<Value> {
     }
 }
 
+/// Whether a node is the plain `<<` merge key.
 fn is_merge_key(node: &Node) -> bool {
     matches!(node, Node::Scalar { text, style: ScalarStyle::Plain, tag: None } if text == "<<")
 }
 
+/// A mapping's entries, applying `<<` merges and refusing duplicate keys.
 fn mapping(pairs: &[(Node, Node)], depth: usize) -> Result<Vec<(String, Value)>> {
     let mut entries: Vec<(String, Value)> = Vec::new();
     let mut merges = Vec::new();
@@ -219,6 +244,7 @@ fn scalar(text: &str, style: ScalarStyle, tag: Option<&str>) -> Result<Value> {
     }
 }
 
+/// The type of a plain, untagged scalar by the YAML 1.2 core schema: null, boolean, integer, float, timestamp, else text.
 fn resolve_plain(text: &str) -> Value {
     if matches!(text, "" | "~" | "null" | "Null" | "NULL") {
         return Value::Null;
@@ -238,6 +264,7 @@ fn resolve_plain(text: &str) -> Value {
     Value::Str(text.to_string())
 }
 
+/// `true` or `false` in the spellings the core schema allows.
 fn parse_bool(text: &str) -> Option<bool> {
     match text {
         "true" | "True" | "TRUE" => Some(true),
@@ -261,6 +288,7 @@ fn parse_int(text: &str) -> Option<i64> {
     text.parse().ok()
 }
 
+/// A float: decimal or exponent form, `.inf` or `.nan`.
 fn parse_float(text: &str) -> Option<f64> {
     match text {
         ".inf" | ".Inf" | ".INF" | "+.inf" | "+.Inf" | "+.INF" => return Some(f64::INFINITY),
@@ -294,16 +322,19 @@ fn parse_float(text: &str) -> Option<f64> {
 mod tests {
     use super::*;
 
+    /// Test helper: the entries of a table value.
     fn table(value: &Value) -> &Vec<(String, Value)> {
         match value {
             Value::Table(entries) => entries,
             other => panic!("not a table: {other:?}"),
         }
     }
+    /// Test helper: the value under `key` in a table.
     fn get<'a>(value: &'a Value, key: &str) -> &'a Value {
         &table(value).iter().find(|(k, _)| k == key).unwrap_or_else(|| panic!("no key {key}")).1
     }
 
+    /// Plain scalars become null, booleans, numbers, dates or text by the core schema.
     #[test]
     fn plain_scalars_resolve_by_the_core_schema() {
         let doc = read("i: 42\nneg: -7\nplus: +5\nhex: 0x1f\noct: 0o17\nlead: 017\nbig: 12345678901\nunder: 1_000\nf: 1.5\ne: 1e3\ndot: 3.\nhalf: .5\ninf: .inf\nninf: -.inf\nb: true\nB: True\nyes: yes\non: on\nn: ~\nnul: null\nempty:\ns: text\n").unwrap();
@@ -331,6 +362,7 @@ mod tests {
         assert_eq!(get(&doc, "s"), &Value::Str("text".into()));
     }
 
+    /// Quoted and block scalars are always text.
     #[test]
     fn quoted_and_block_scalars_are_strings() {
         let doc = read("a: '123'\nb: \"true\"\nc: '2024-03-05'\nd: |\n  l1\n  l2\ne: >\n  f1\n  f2\nf: |-\n  x\ng: 'it''s'\nh: \"tab\\there\"\n").unwrap();
@@ -344,6 +376,7 @@ mod tests {
         assert_eq!(get(&doc, "h"), &Value::Str("tab\there".into()));
     }
 
+    /// An explicit tag decides the type.
     #[test]
     fn tags_choose_the_type() {
         let doc = read("a: !!str 123\nb: !!int '7'\nc: !!float 1\nd: !!bool 'true'\ne: !!null ''\n").unwrap();
@@ -356,6 +389,7 @@ mod tests {
         assert!(read("a: !!int nope\n").is_err());
     }
 
+    /// A plain timestamp is a date; the same text in quotes is a string.
     #[test]
     fn plain_dates_are_dates_and_quoted_ones_are_not() {
         let doc = read("d: 2024-03-05\nt: 2024-03-05T06:07:08Z\nq: \"2024-03-05\"\n").unwrap();
@@ -364,6 +398,7 @@ mod tests {
         assert_eq!(get(&doc, "q"), &Value::Str("2024-03-05".into()));
     }
 
+    /// An empty document is null, and the root may be any value.
     #[test]
     fn documents_roots_and_emptiness() {
         assert_eq!(read("").unwrap(), Value::Null);
@@ -380,6 +415,7 @@ mod tests {
         assert_eq!(error.kind, Kind::Parse);
     }
 
+    /// Keys keep their order, and scalar keys read as text.
     #[test]
     fn keys_keep_order_and_scalar_keys_read_as_text() {
         let doc = read("b: 1\na: 2\n1: x\ntrue: y\n").unwrap();
@@ -389,6 +425,7 @@ mod tests {
         assert!(read("? [1, 2]\n: x\n").is_err());
     }
 
+    /// A key that appears twice in a mapping is an error.
     #[test]
     fn duplicate_keys_are_errors() {
         let error = read("a: 1\na: 2\n").unwrap_err();
@@ -396,6 +433,7 @@ mod tests {
         assert!(read("a: {x: 1, x: 2}\n").is_err());
     }
 
+    /// Anchors and aliases copy values, and `<<` merges mappings.
     #[test]
     fn anchors_aliases_and_merge_keys() {
         let doc = read("base: &x\n  k: 1\n  j: 0\ncopy: *x\nc:\n  <<: *x\n  z: 2\n  k: 9\nmany:\n  <<: [*x, {k: 5, m: 6}]\n").unwrap();
@@ -408,6 +446,7 @@ mod tests {
         assert!(read("a: *missing\n").is_err());
     }
 
+    /// More than 50 aliases to collections are refused.
     #[test]
     fn too_many_aliases_to_collections_are_refused() {
         let mut text = String::from("a: &a [x, x, x]\n");
@@ -417,6 +456,7 @@ mod tests {
         assert!(read(&text).unwrap_err().message.contains("exceeds the specified max=50"));
     }
 
+    /// A syntax error is a parse failure that names its line.
     #[test]
     fn syntax_errors_say_where() {
         let error = read("a: [1, 2").unwrap_err();
