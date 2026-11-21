@@ -12,3 +12,7 @@ build/**
 /libs/
 src/test/resources/libs/*
 !src/test/resources/libs/.gitkeep
+
+### MatchBox native backend ###
+native/target/
+native/prebuilt/

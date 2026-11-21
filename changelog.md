@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- MatchBox backend: the module now also runs on MatchBox without a JVM. A Rust plugin in `native/` provides `yamlDeserialize()`, `yamlDeserializeFile()` and `yamlSerialize()` with the same arguments, packaged as prebuilt libraries for `x86_64` and `aarch64` on Linux, macOS and Windows under `matchbox.artifacts` in the same zip. It reads YAML 1.2 (see the readme for the differences from SnakeYAML) and writes SnakeYAML's block layout. One contract script runs on both backends.
+
 ## [1.1.0] - 2026-10-17
 
 ### Fixed
