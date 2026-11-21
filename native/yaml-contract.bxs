@@ -1,0 +1,143 @@
+// Shared portable API contract. Run against the same bx-yaml package in either runtime:
+// MatchBox (interpreted or a native binary) and the JVM (native/YamlContract.java).
+// It checks what both backends promise: names, arguments, value types, the text that is written and the failures that
+// are raised. It leaves out what differs by design: YAML 1.1 words (yes, on, 017, 1_000), key order of a mapping with
+// several keys (the JVM does not keep it), and the wording of syntax errors. Paths are absolute, because a relative one
+// starts in the calling file's folder.
+nl = char( 10 );
+function lines( required array parts ) {
+	return arrayToList( parts, nl ) & nl;
+}
+function thrownMessage( required any action ) {
+	try {
+		action();
+	} catch ( any e ) {
+		return e.message;
+	}
+	return "";
+}
+function thrownType( required any action ) {
+	try {
+		action();
+	} catch ( any e ) {
+		return e.type;
+	}
+	return "";
+}
+
+// Parsing: types, nesting, sequences and mappings
+data = yamlDeserialize( lines( [
+	'name: demo',
+	'count: 42',
+	'ratio: 0.5',
+	'enabled: true',
+	'nothing: ~',
+	'empty:',
+	'ports:',
+	'  - 8000',
+	'  - 8001',
+	'owner:',
+	'  name: Tom',
+	'  address:',
+	'    city: Lisbon',
+	'servers:',
+	'  - host: alpha',
+	'    tags: [a, b]',
+	'  - host: beta'
+] ) );
+assert data.name == "demo" && data.count == 42 && data.ratio == 0.5 && data.enabled == true;
+assert isBoolean( data.enabled ) && isNumeric( data.count );
+assert structKeyExists( data, "nothing" ) && isNull( data.nothing ) && structKeyExists( data, "empty" ) && isNull( data.empty );
+assert data.ports.len() == 2 && data.ports[ 1 ] == 8000 && data.ports[ 2 ] == 8001;
+assert data.owner.name == "Tom" && data.owner.address.city == "Lisbon";
+assert data.servers.len() == 2 && data.servers[ 1 ].tags[ 2 ] == "b" && data.servers[ 2 ].host == "beta";
+// Mapping keys are case-insensitive, as BoxLang structs are
+assert data.NAME == "demo" && data.owner.NAME == "Tom";
+
+// Roots need not be mappings
+assert yamlDeserialize( lines( [ '- 1', '- two', '- [3, 4]', '- {a: b}' ] ) )[ 2 ] == "two";
+assert yamlDeserialize( lines( [ '- 1', '- two', '- [3, 4]', '- {a: b}' ] ) )[ 4 ].a == "b";
+assert yamlDeserialize( "just text" ) == "just text";
+assert isNull( yamlDeserialize( "" ) );
+
+// Numbers, hex and the infinities read the same in both versions of YAML; quoted values stay text
+typed = yamlDeserialize( lines( [ 'hex: 0x1f', 'exp: 1e3', 'neg: -7', 'big: 12345678901', 'quoted: "123"', 'flag: ''true''' ] ) );
+assert typed.hex == 31 && typed.exp == 1000 && typed.neg == -7 && typed.big == 12345678901;
+assert typed.quoted == "123" && typed.flag == "true";
+
+// Block and flow scalars
+blocks = yamlDeserialize( lines( [ 'a: |', '  l1', '  l2', 'b: >', '  f1', '  f2', 'c: |-', '  x', 'd: [1, two, {x: y}]', 'e: {k: [1, 2]}' ] ) );
+assert blocks.a == "l1" & nl & "l2" & nl && blocks.b == "f1 f2" & nl && blocks.c == "x";
+assert blocks.d[ 3 ].x == "y" && blocks.e.k[ 2 ] == 2;
+
+// Anchors, aliases and merge keys
+merged = yamlDeserialize( lines( [ 'base: &x', '  k: 1', '  j: 0', 'copy: *x', 'c:', '  <<: *x', '  z: 2', '  k: 9' ] ) );
+assert merged.copy.k == 1 && merged.c.j == 0 && merged.c.k == 9 && merged.c.z == 2;
+
+// Plain dates and timestamps are dates; quoted ones are text
+dates = yamlDeserialize( lines( [ 'd: 2024-03-05', 't: 2024-03-05T06:07:08Z', 'o: 2024-03-05T06:07:08+05:30', 'q: ''2024-03-05''' ] ) );
+assert isDate( dates.d ) && isDate( dates.t ) && isDate( dates.o );
+assert year( dates.d ) == 2024 && month( dates.d ) == 3 && day( dates.d ) == 5;
+assert year( dates.t ) == 2024 && year( dates.o ) == 2024;
+assert dates.q == "2024-03-05";
+
+// Writing: block style, a sequence is not indented under its key
+assert yamlSerialize( { name: "demo" } ) == 'name: demo' & nl;
+assert yamlSerialize( { list: [ 1, 2 ] } ) == lines( [ 'list:', '- 1', '- 2' ] );
+assert yamlSerialize( { a: { b: { c: 1 } } } ) == lines( [ 'a:', '  b:', '    c: 1' ] );
+assert yamlSerialize( [ 1, "two", "d: e" ] ) == lines( [ '- 1', '- two', "- 'd: e'" ] );
+assert yamlSerialize( [ { k: "v" }, [ 3, [ 4 ] ] ] ) == lines( [ '- k: v', '- - 3', '  - - 4' ] );
+assert yamlSerialize( "just text" ) == 'just text' & nl;
+assert yamlSerialize( 42 ) == '42' & nl;
+assert yamlSerialize( { n: 7 } ) == 'n: 7' & nl && yamlSerialize( { f: 2.5 } ) == 'f: 2.5' & nl && yamlSerialize( { t: true } ) == 't: true' & nl;
+assert yamlSerialize( { big: 12345678901 } ) == 'big: 12345678901' & nl;
+assert yamlSerialize( { a: nullValue() } ) == 'a: null' & nl;
+
+// Writing: text a reader could take for something else is quoted
+for ( pair in [ [ "true", "'true'" ], [ "null", "'null'" ], [ "123", "'123'" ], [ "1.5", "'1.5'" ], [ "0x1f", "'0x1f'" ], [ "2024-03-05", "'2024-03-05'" ], [ "no", "'no'" ], [ "on", "'on'" ], [ "x: y", "'x: y'" ], [ "- x", "'- x'" ], [ "", "''" ], [ " lead", "' lead'" ], [ "trail ", "'trail '" ], [ "it's", "it's" ], [ "x,y", "x,y" ], [ "plain text", "plain text" ] ] ) {
+	assert yamlSerialize( { a: pair[ 1 ] } ) == 'a: ' & pair[ 2 ] & nl : "quoting " & pair[ 1 ];
+}
+assert yamlSerialize( { a: "line1" & nl & "line2" } ) == lines( [ 'a: |-', '  line1', '  line2' ] );
+assert yamlSerialize( { a: "line1" & nl } ) == lines( [ 'a: |', '  line1' ] );
+
+// Writing: dates are ISO text
+isoDate = yamlDeserialize( 'd: 2024-03-05T06:07:08.5+05:30' ).d;
+assert yamlSerialize( { d: isoDate } ) == "d: '2024-03-05T06:07:08.5+05:30'" & nl;
+
+// A document written and read again is the same document
+rt = yamlDeserialize( yamlSerialize( data ) );
+assert rt.name == "demo" && rt.count == 42 && rt.ratio == 0.5 && rt.enabled == true && isNull( rt.nothing );
+assert rt.ports[ 2 ] == 8001 && rt.owner.address.city == "Lisbon" && rt.servers[ 1 ].tags[ 2 ] == "b" && rt.servers[ 2 ].host == "beta";
+tricky = [ "yes", "No", "y", "1_000", "012", "1:30", "a: b", "- c", "tab" & char( 9 ) & "x", "q'uote", 'dq"uote', "multi" & nl & "line", "trail" & nl, "  spaces", "" ];
+back = yamlDeserialize( yamlSerialize( { list: tricky } ) ).list;
+assert back.len() == tricky.len();
+for ( i = 1; i <= tricky.len(); i++ ) {
+	assert back[ i ] == tricky[ i ] : "round trip of [" & tricky[ i ] & "]";
+}
+
+// Files: yamlSerialize with a filepath, and yamlDeserializeFile
+dir = getTempDirectory() & "/bx-yaml-contract-" & createUUID();
+directoryCreate( dir );
+try {
+	file = dir & "/out.yaml";
+	assert isNull( yamlSerialize( { a: 1 }, file ) );
+	// The size says the newline was written; fileRead is not asked, because BoxLang 1.15 drops a trailing newline and 1.19 keeps it
+	assert getFileInfo( file ).size == len( 'a: 1' & nl ) && trim( fileRead( file ) ) == 'a: 1';
+	fileWrite( dir & "/in.yaml", lines( [ 'b: two', 't:', '  c: 3' ] ) );
+	read = yamlDeserializeFile( dir & "/in.yaml" );
+	assert read.b == "two" && read.t.c == 3;
+	assert yamlDeserializeFile( filepath = dir & "/in.yaml", charset = "UTF-8" ).b == "two";
+	assert thrownMessage( () => yamlDeserializeFile( dir & "/missing.yaml" ) ) == "Error deserializing yaml";
+	assert thrownType( () => yamlDeserializeFile( dir & "/missing.yaml" ) ) == "Application";
+	assert thrownMessage( () => yamlSerialize( { a: 1 }, dir & "/no/such/dir/x.yaml" ) ) == "Error serializing yaml";
+} finally {
+	directoryDelete( dir, true );
+}
+
+// Input that is not one YAML document the module can read fails
+assert thrownMessage( () => yamlDeserialize( "a: [1, 2" ) ) != "";
+assert thrownMessage( () => yamlDeserialize( lines( [ 'a: 1', 'a: 2' ] ) ) ) != "";
+assert thrownMessage( () => yamlDeserialize( lines( [ 'a: 1', '---', 'b: 2' ] ) ) ) != "";
+assert thrownMessage( () => yamlDeserialize( "~: c" ) ) != "";
+
+println( "bx-yaml native contract: OK" );
